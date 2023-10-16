@@ -108,7 +108,7 @@ The code in this repository (except in external.py) is licensed under the MIT li
 However, for this code to run it uses the cuda rasterizer code from [here](https://github.com/JonathonLuiten/diff-gaussian-rasterization-w-depth),
 as well as various code in [external.py](./external.py) which has been taken or adapted from [here](https://github.com/graphdeco-inria/gaussian-splatting).
 These are required for this project, and for these a much more restrictive license from Inria applies which can be found [here](https://github.com/graphdeco-inria/gaussian-splatting/blob/main/LICENSE.md).
-This requires express permission (licensing agreements) from Inria for use in any commercial application.
+This requires express permission (licensing agreements) from Inria for use in any commercial application, but is otherwise freely freely distributed for research and experimentation.
 
 
 ## Citation:
