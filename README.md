@@ -64,8 +64,8 @@ This code is thus a work in progress.
 
 
 ## Differences to paper:
-This codebase contains some significant changes from the results presenting in the currently public version of the paper.
-Both this codebase and the corresponding [paper]([https://dynamic3dgaussians.github.io/paper.pdf](https://arxiv.org/pdf/2308.09713.pdf)) are work-in-progress and likely to change in the near future.
+This codebase contains some significant changes from the results presented in the currently public version of the paper.
+Both this codebase and the corresponding [paper](https://arxiv.org/pdf/2308.09713.pdf) are work-in-progress and likely to change in the near future.
 Until I find time to update the paper (eta December 1st) the code here is the more up-to-date public facing version of these two.
 
 Differences:
