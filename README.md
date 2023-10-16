@@ -107,6 +107,8 @@ In particular, I have seen various things that (a) somehow run on my phone and o
 
 Dylan made a helpful list that can be found [here](https://huggingface.co/spaces/dylanebert/list-of-splats)
 
+### Better (or no) FG / BG segmentations:
+The current FG/BG segmentations I use are REALLY bad. I made them very quickly by using simple background subtraction using a background image (image with no objects) for each camera with some smoothing. The badness of these segmentation masks causes a noticable degradation of the results. Especially around the feet of people / near the floor. It should be very easy to get much better segmentation masks (e.g. using pretrained networks), but I think it also probably isn't too hard to get the method to work without segmentation masks as all.
 
 ## Further research:
 There are ALOT of cool things still to be done building upon Dynamic 3D Gaussians. If you're doing so (especially research projects) feel free to reach out if you want to discuss (email / issue / twitter)
