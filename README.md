@@ -7,6 +7,7 @@ Official implementation of our approach for modelling the dynamic 3D world as a 
  [Bastian Leibe](https://www.vision.rwth-aachen.de/person/1/) <sup>2</sup>,
  [Deva Ramanan](https://www.cs.cmu.edu/~deva/) <sup>1</sup> <br>
  <sup>1</sup> Carnegie Mellon University, <sup>2</sup> RWTH Aachen University, <sup>3</sup> Inria & Universite Cote d’Azur, France <br>
+ International Conference on 3D Vision (3DV), 2024 <br>
 jonoluiten@gmail.com
 
 <p float="middle">
