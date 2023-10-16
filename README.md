@@ -44,11 +44,11 @@ python train.py
 ```
 
 
-## Bugs in code:
-This code works quite well and still gives very excellent results. However I have noted that sometimes it does give somewhat incorrect results compared to my older messy code, and there may have been some bugs introduced in the cleanup process. 
+## Potential bugs:
+This code works quite well and gives excellent results. However I have noted that sometimes it does give somewhat worse results compared to my older messy code, and perhaps this is there may have been some bugs introduced in the cleanup process. 
 I don't know exactly where or why the results are different (or even if they are different, maybe I was getting bad results randomly), and I don't have time to do a thorough investigation myself.
 Releasing this code as-is now because many people have been asking for it, and maybe together we can figure this out.
-I would love any help digging into this and improving the results.
+I would love any help investigating this, and in general figure out anyway to improve this code and the results.
 I am happy to share old code with people who want to explicitly find the differences, on the conditions that 
 (a) it is only used for improving this code base, and (b) it is deleted and not built upon / used after.
 This code is thus a work in progress.
