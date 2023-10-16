@@ -131,11 +131,13 @@ def get_loss(params, curr_data, variables, is_initial_timestep):
 def initialize_per_timestep(params, variables, optimizer):
     pts = params['means3D']
     rot = torch.nn.functional.normalize(params['unnorm_rotations'])
+    new_pts = pts + (pts - variables["prev_pts"])
+    new_rot = torch.nn.functional.normalize(rot + (rot - variables["prev_rot"]))
 
     is_fg = params['seg_colors'][:, 0] > 0.5
-    prev_inv_rot_fg = torch.nn.functional.normalize(params['unnorm_rotations'][is_fg])
+    prev_inv_rot_fg = rot[is_fg]
     prev_inv_rot_fg[:, 1:] = -1 * prev_inv_rot_fg[:, 1:]
-    fg_pts = params['means3D'][is_fg]
+    fg_pts = pts[is_fg]
     prev_offset = fg_pts[variables["neighbor_indices"]] - fg_pts[:, None]
     variables['prev_inv_rot_fg'] = prev_inv_rot_fg.detach()
     variables['prev_offset'] = prev_offset.detach()
@@ -143,8 +145,6 @@ def initialize_per_timestep(params, variables, optimizer):
     variables["prev_pts"] = pts.detach()
     variables["prev_rot"] = rot.detach()
 
-    new_pts = pts + (pts - variables["prev_pts"])
-    new_rot = torch.nn.functional.normalize(rot + (rot - variables["prev_rot"]))
     new_params = {'means3D': new_pts, 'unnorm_rotations': new_rot}
     params = update_params_and_optimizer(new_params, params, optimizer)
 
