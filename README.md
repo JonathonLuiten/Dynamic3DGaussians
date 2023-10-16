@@ -45,7 +45,7 @@ python train.py
 
 
 ## Potential bugs:
-This code works quite well and gives excellent results. However I have noted that sometimes it does give somewhat worse results compared to my older messy code, and perhaps this is there may have been some bugs introduced in the cleanup process. 
+This code works quite well and gives excellent results. However I have noted that sometimes it does give somewhat worse results compared to my older messy code, and perhaps this is because there may have been some bugs introduced in the cleanup process. 
 I don't know exactly where or why the results are different (or even if they are different, maybe I was getting bad results randomly), and I don't have time to do a thorough investigation myself.
 Releasing this code as-is now because many people have been asking for it, and maybe together we can figure this out.
 I would love any help investigating this, and in general figure out anyway to improve this code and the results.
@@ -56,7 +56,7 @@ This code is thus a work in progress.
 
 ## Differences to paper:
 This codebase contains some significant changes from the results presenting in the currently public version of the paper.
-Both this codebase and the corresponding [paper](https://dynamic3dgaussians.github.io/paper.pdf) are work-in-progress and likely to change in the near future.
+Both this codebase and the corresponding [paper]([https://dynamic3dgaussians.github.io/paper.pdf](https://arxiv.org/pdf/2308.09713.pdf)) are work-in-progress and likely to change in the near future.
 Until I find time to update the paper (eta December 1st) the code here is the more up-to-date public facing version of these two.
 
 Differences:
