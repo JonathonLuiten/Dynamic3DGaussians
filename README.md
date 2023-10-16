@@ -121,10 +121,10 @@ This requires express permission (licensing agreements) from Inria for use in an
 
 ## Citation:
 ```
-@article{luiten2023dynamic,
+@inproceedings{luiten2023dynamic,
   title={Dynamic 3D Gaussians: Tracking by Persistent Dynamic View Synthesis},
   author={Luiten, Jonathon and Kopanas, Georgios and Leibe, Bastian and Ramanan, Deva},
-  journal={arXiv preprint arXiv:2308.09713},
-  year={2023}
+  booktitle={3DV},
+  year={2024}
 }
 ```
