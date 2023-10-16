@@ -11,5 +11,6 @@ dependencies:
   - torchaudio=0.12.1
   - torchvision=0.13.1
   - tqdm=4.65.0
-  - open3d=0.16.0
   - Pillow=9.4.0
+  - pip:
+    - open3d==0.16.0
