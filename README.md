@@ -45,8 +45,8 @@ python train.py
 
 
 ## Bugs in code:
-Note this code still seems buggy to me and sometimes gives incorrect results compared to my older messy code. 
-I don't know where or why the results are different, and I don't have time to do a thorough investigation myself.
+This code works quite well and still gives very excellent results. However I have noted that sometimes it does give somewhat incorrect results compared to my older messy code, and there may have been some bugs introduced in the cleanup process. 
+I don't know exactly where or why the results are different (or even if they are different, maybe I was getting bad results randomly), and I don't have time to do a thorough investigation myself.
 Releasing this code as-is now because many people have been asking for it, and maybe together we can figure this out.
 I would love any help digging into this and improving the results.
 I am happy to share old code with people who want to explicitly find the differences, on the conditions that 
