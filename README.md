@@ -43,20 +43,29 @@ unzip data.zip
 python train.py 
 ```
 
+## Code Structure:
+I tried really hard to make this code really clean and useful for building upon. In my opinion it is now much nicer than the original code it was built upon.
+Everything is relatively 'functional' and I tried to remove redundant classes and modules wherever possible. 
+Almost all of the code is in [train.py](./train.py) in a few core functions, with the overall training loop clearly laid out.
+There are only a few other helper functions used, divided between [helpers.py](helpers.py) and [external.py](external.py) (depending on license).
+I have split all useful variables into two dicts: 'params' (those updated with gradient descent), and 'variables' (those not updated by gradient descent).
+There is also a custom visualization codebase build using Open3D (used for the cool visuals on the website) that is entirely in [visualize.py](visualize.py).
+Please let me know if there is anyway you think the code could be cleaner. 
 
-## Bugs in code:
-Note this code still seems buggy to me and sometimes gives incorrect results compared to my older messy code. 
-I don't know where or why the results are different, and I don't have time to do a thorough investigation myself.
+
+## Potential bugs:
+This code works quite well and gives excellent results. However I have noted that sometimes it does give somewhat worse results compared to my older messy code, and perhaps this is because there may have been some bugs introduced in the cleanup process. 
+I don't know exactly where or why the results are different (or even if they are different, maybe I was getting bad results randomly), and I don't have time to do a thorough investigation myself.
 Releasing this code as-is now because many people have been asking for it, and maybe together we can figure this out.
-I would love any help digging into this and improving the results.
+I would love any help investigating this, and in general figure out anyway to improve this code and the results.
 I am happy to share old code with people who want to explicitly find the differences, on the conditions that 
 (a) it is only used for improving this code base, and (b) it is deleted and not built upon / used after.
 This code is thus a work in progress.
 
 
 ## Differences to paper:
-This codebase contains some significant changes from the results presenting in the currently public version of the paper.
-Both this codebase and the corresponding [paper](https://dynamic3dgaussians.github.io/paper.pdf) are work-in-progress and likely to change in the near future.
+This codebase contains some significant changes from the results presented in the currently public version of the paper.
+Both this codebase and the corresponding [paper](https://arxiv.org/pdf/2308.09713.pdf) are work-in-progress and likely to change in the near future.
 Until I find time to update the paper (eta December 1st) the code here is the more up-to-date public facing version of these two.
 
 Differences:
@@ -98,6 +107,8 @@ In particular, I have seen various things that (a) somehow run on my phone and o
 
 Dylan made a helpful list that can be found [here](https://huggingface.co/spaces/dylanebert/list-of-splats)
 
+### Better (or no) FG / BG segmentations:
+The current FG/BG segmentations I use are REALLY bad. I made them very quickly by using simple background subtraction using a background image (image with no objects) for each camera with some smoothing. The badness of these segmentation masks causes a noticable degradation of the results. Especially around the feet of people / near the floor. It should be very easy to get much better segmentation masks (e.g. using pretrained networks), but I think it also probably isn't too hard to get the method to work without segmentation masks as all.
 
 ## Further research:
 There are ALOT of cool things still to be done building upon Dynamic 3D Gaussians. If you're doing so (especially research projects) feel free to reach out if you want to discuss (email / issue / twitter)
@@ -108,15 +119,15 @@ The code in this repository (except in external.py) is licensed under the MIT li
 However, for this code to run it uses the cuda rasterizer code from [here](https://github.com/JonathonLuiten/diff-gaussian-rasterization-w-depth),
 as well as various code in [external.py](./external.py) which has been taken or adapted from [here](https://github.com/graphdeco-inria/gaussian-splatting).
 These are required for this project, and for these a much more restrictive license from Inria applies which can be found [here](https://github.com/graphdeco-inria/gaussian-splatting/blob/main/LICENSE.md).
-This requires express permission (licensing agreements) from Inria for use in any commercial application.
+This requires express permission (licensing agreements) from Inria for use in any commercial application, but is otherwise freely freely distributed for research and experimentation.
 
 
 ## Citation:
 ```
-@article{luiten2023dynamic,
+@inproceedings{luiten2023dynamic,
   title={Dynamic 3D Gaussians: Tracking by Persistent Dynamic View Synthesis},
   author={Luiten, Jonathon and Kopanas, Georgios and Leibe, Bastian and Ramanan, Deva},
-  journal={arXiv preprint arXiv:2308.09713},
-  year={2023}
+  booktitle={3DV},
+  year={2024}
 }
 ```
