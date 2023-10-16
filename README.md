@@ -43,6 +43,14 @@ unzip data.zip
 python train.py 
 ```
 
+## Code Structure:
+I tried really hard to make this code really clean and useful for building upon. In my opinion it is now much nicer than the original code it was built upon.
+Everything is relatively 'functional' and I tried to remove redundant classes and modules wherever possible. 
+Almost all of the code is in 'train.py' in a few core functions, with the overall training loop clearly laid out.
+There are only a few other helper functions used, divided between helper.py and external.py (depending on license).
+I have split all useful variables into two dicts: 'params' (those updated with gradient descent), and 'variables' (those not updated by gradient descent).
+Please let me know if there is anyway you think the code could be cleaner. 
+
 
 ## Potential bugs:
 This code works quite well and gives excellent results. However I have noted that sometimes it does give somewhat worse results compared to my older messy code, and perhaps this is because there may have been some bugs introduced in the cleanup process. 
