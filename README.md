@@ -22,9 +22,7 @@ conda activate dynamic_gaussians
 
 # Install rendering code (cuda)
 git clone git@github.com:JonathonLuiten/diff-gaussian-rasterization-w-depth.git
-cd diff-gaussian-rasterization-w-depth
-python setup.py install
-pip install .
+pip install -e diff-gaussian-rasterization-w-depth
 ```
 
 ## Run visualizer on pretrained models:
