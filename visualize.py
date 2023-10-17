@@ -34,8 +34,7 @@ traj_frac = 25  # 4% of points
 traj_length = 15
 
 # This tensor represents a set of homogeneous 2D coordinates for each pixel in the image.
-# The last dimension (a constant value of 1) makes these coordinates homogeneous,
-# which is useful for matrix multiplications in projective geometry.
+# The last dimension (a constant value of 1) makes these coordinates homogeneous.
 def_pix = torch.tensor(
             np.stack(
                 np.meshgrid(np.arange(width) + 0.5,

@@ -31,7 +31,7 @@ def setup_camera(
     ]).cuda().float().unsqueeze(0).transpose(1, 2)
 
     # This will give a matrix that transforms from world coordinates
-    # directly to normalized device coordinates (NDC) used in graphics
+    # directly to normalized device coordinates (NDC)
     full_proj = world_2_cam_tensor.bmm(opengl_proj)
     
     cam = Camera(
