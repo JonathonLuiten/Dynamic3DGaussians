@@ -5,24 +5,43 @@ import numpy as np
 from diff_gaussian_rasterization import GaussianRasterizationSettings as Camera
 
 
-def setup_camera(w, h, k, w2c, near=0.01, far=100):
-    fx, fy, cx, cy = k[0][0], k[1][1], k[0][2], k[1][2]
-    w2c = torch.tensor(w2c).cuda().float()
-    cam_center = torch.inverse(w2c)[:3, 3]
-    w2c = w2c.unsqueeze(0).transpose(1, 2)
-    opengl_proj = torch.tensor([[2 * fx / w, 0.0, -(w - 2 * cx) / w, 0.0],
-                                [0.0, 2 * fy / h, -(h - 2 * cy) / h, 0.0],
-                                [0.0, 0.0, far / (far - near), -(far * near) / (far - near)],
-                                [0.0, 0.0, 1.0, 0.0]]).cuda().float().unsqueeze(0).transpose(1, 2)
-    full_proj = w2c.bmm(opengl_proj)
+def setup_camera(
+        width:int,
+        height:int,
+        instrinsics:np.ndarray,
+        world_2_cam:np.ndarray,
+        near:float=0.01,    # Near and far clipping planes for depth in the camera's view frustum.
+        far:float=100       # meters?
+    ) -> Camera:
+    # Focal length, (x, y in pixels) --- optical center (x, y)
+    fx, fy, cx, cy = instrinsics[0][0], instrinsics[1][1], instrinsics[0][2], instrinsics[1][2]
+
+    world_2_cam_tensor:torch.Tensor = torch.tensor(world_2_cam).cuda().float()
+    
+    # position of the camera center in the world coordinates.
+    cam_center = torch.inverse(world_2_cam_tensor)[:3, 3]
+    world_2_cam_tensor = world_2_cam_tensor.unsqueeze(0).transpose(1, 2)
+
+    # This matrix is used to map 3D world coordinates to 2D camera coordinates, factoring in the depth.
+    opengl_proj = torch.tensor([
+        [ 2 * fx / width,              0.0,              -(width - 2 * cx) / width,   0.0 ],
+        [ 0.0,                         2 * fy / height,  -(height - 2 * cy) / height, 0.0 ],
+        [ 0.0,                         0.0,              far / (far - near),         -(far * near) / (far - near) ],
+        [ 0.0,                         0.0,              1.0,                         0.0 ]
+    ]).cuda().float().unsqueeze(0).transpose(1, 2)
+
+    # This will give a matrix that transforms from world coordinates
+    # directly to normalized device coordinates (NDC) used in graphics
+    full_proj = world_2_cam_tensor.bmm(opengl_proj)
+    
     cam = Camera(
-        image_height=h,
-        image_width=w,
-        tanfovx=w / (2 * fx),
-        tanfovy=h / (2 * fy),
+        image_height=height,
+        image_width=width,
+        tanfovx=width / (2 * fx),
+        tanfovy=height / (2 * fy),
         bg=torch.tensor([0, 0, 0], dtype=torch.float32, device="cuda"),
         scale_modifier=1.0,
-        viewmatrix=w2c,
+        viewmatrix=world_2_cam_tensor,
         projmatrix=full_proj,
         sh_degree=0,
         campos=cam_center,
