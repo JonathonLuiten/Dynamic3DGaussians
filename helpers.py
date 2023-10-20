@@ -10,8 +10,8 @@ def setup_camera(
         height:int,
         instrinsics:np.ndarray,
         world_2_cam:np.ndarray,
-        near:float=0.01,    # Near and far clipping planes for depth in the camera's view frustum.
-        far:float=100       # meters?
+        near:float, # Near and far clipping planes for depth in the camera's view frustum. (in meters?)
+        far:float      
     ) -> Camera:
     # Focal length, (x, y in pixels) --- optical center (x, y)
     fx, fy, cx, cy = instrinsics[0][0], instrinsics[1][1], instrinsics[0][2], instrinsics[1][2]
@@ -50,7 +50,7 @@ def setup_camera(
     return cam
 
 
-def params2rendervar(params):
+def params2rendervar(params:dict) -> dict:
     rendervar = {
         'means3D': params['means3D'],
         'colors_precomp': params['rgb_colors'],
