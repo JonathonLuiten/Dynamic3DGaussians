@@ -1,59 +1,90 @@
-import torch
 import os
 import json
+import random
 import copy
+
+import torch
 import numpy as np
 from PIL import Image
-from random import randint
 from tqdm import tqdm
+
 from diff_gaussian_rasterization import GaussianRasterizer as Renderer
-from helpers import setup_camera, l1_loss_v1, l1_loss_v2, weighted_l2_loss_v1, weighted_l2_loss_v2, quat_mult, \
-    o3d_knn, params2rendervar, params2cpu, save_params
-from external import calc_ssim, calc_psnr, build_rotation, densify, update_params_and_optimizer
+
+from helpers import setup_camera
+from helpers import o3d_knn
+from helpers import params2rendervar
+from helpers import params2cpu
+from helpers import save_params
+
+from external import calc_psnr
+from external import densify
+from external import update_params_and_optimizer
+
+from loss import get_loss
+
+MAX_CAMS:int =          50
+NUM_NEAREST_NEIGH:int = 3
+SCENE_SIZE_MULT:float = 1.1
+
+# Camera
+NEAR:float =    1.0
+FAR:float =     100.
+
+# Training Hyperparams
+INITIAL_TIMESTEP_ITERATIONS =   10_000
+TIMESTEP_ITERATIONS =           2_000
 
 
-def get_dataset(t, md, seq):
-    dataset = []
-    for c in range(len(md['fn'][t])):
-        w, h, k, w2c = md['w'], md['h'], md['k'][t][c], md['w2c'][t][c]
-        cam = setup_camera(w, h, k, w2c, near=1.0, far=100)
-        fn = md['fn'][t][c]
-        im = np.array(copy.deepcopy(Image.open(f"./data/{seq}/ims/{fn}")))
-        im = torch.tensor(im).float().cuda().permute(2, 0, 1) / 255
-        seg = np.array(copy.deepcopy(Image.open(f"./data/{seq}/seg/{fn.replace('.jpg', '.png')}"))).astype(np.float32)
-        seg = torch.tensor(seg).float().cuda()
-        seg_col = torch.stack((seg, torch.zeros_like(seg), 1 - seg))
-        dataset.append({'cam': cam, 'im': im, 'seg': seg_col, 'id': c})
-    return dataset
+def construct_timestep_dataset(timestep:int, metadata:dict, sequence:str) -> list[dict]:
+    dataset_entries = []
+    for camera_id in range(len(metadata['fn'][timestep])):
+        width, height, intrinsics, extrinsics = metadata['w'], metadata['h'], metadata['k'][timestep][camera_id], metadata['w2c'][timestep][camera_id]
+        camera = setup_camera(width, height, intrinsics, extrinsics, near=NEAR, far=FAR)
+        
+        filename = metadata['fn'][timestep][camera_id]
+        
+        image = np.array(copy.deepcopy(Image.open(f"./data/{sequence}/ims/{filename}")))
+        image_tensor = torch.tensor(image).float().cuda().permute(2, 0, 1) / 255.
+        
+        segmentation = np.array(copy.deepcopy(Image.open(f"./data/{sequence}/seg/{filename.replace('.jpg', '.png')}"))).astype(np.float32)
+        segmentation_tensor = torch.tensor(segmentation).float().cuda()
+        segmentation_color = torch.stack((segmentation_tensor, torch.zeros_like(segmentation_tensor), 1 - segmentation_tensor))
+        
+        dataset_entries.append({'cam': camera, 'im': image_tensor, 'seg': segmentation_color, 'id': camera_id})
+    
+    return dataset_entries
 
 
-def get_batch(todo_dataset, dataset):
-    if not todo_dataset:
-        todo_dataset = dataset.copy()
-    curr_data = todo_dataset.pop(randint(0, len(todo_dataset) - 1))
-    return curr_data
+def initialize_batch_sampler(dataset:list[dict]) -> list[int]:
+    indices = list(range(len(dataset)))
+    random.shuffle(indices)
+    return indices
 
 
-def initialize_params(seq, md):
-    init_pt_cld = np.load(f"./data/{seq}/init_pt_cld.npz")["data"]
-    seg = init_pt_cld[:, 6]
-    max_cams = 50
-    sq_dist, _ = o3d_knn(init_pt_cld[:, :3], 3)
-    mean3_sq_dist = sq_dist.mean(-1).clip(min=0.0000001)
+def get_data_point(batch_sampler:list[int], dataset:list[dict]) -> dict:
+    if len(batch_sampler) < 1: batch_sampler = initialize_batch_sampler(dataset)
+    return dataset[batch_sampler.pop()]
+
+
+def initialize_params(sequence:str, metadata:dict) -> tuple[dict, dict]:
+    init_pt_cld:np.ndarray = np.load(f"./data/{sequence}/init_pt_cld.npz")["data"]
+    segmentation = init_pt_cld[:, 6]
+    square_distance, _ = o3d_knn(init_pt_cld[:, :3], NUM_NEAREST_NEIGH)
+    mean_square_distance = square_distance.mean(-1).clip(min=1e-7)
     params = {
         'means3D': init_pt_cld[:, :3],
         'rgb_colors': init_pt_cld[:, 3:6],
-        'seg_colors': np.stack((seg, np.zeros_like(seg), 1 - seg), -1),
-        'unnorm_rotations': np.tile([1, 0, 0, 0], (seg.shape[0], 1)),
-        'logit_opacities': np.zeros((seg.shape[0], 1)),
-        'log_scales': np.tile(np.log(np.sqrt(mean3_sq_dist))[..., None], (1, 3)),
-        'cam_m': np.zeros((max_cams, 3)),
-        'cam_c': np.zeros((max_cams, 3)),
+        'seg_colors': np.stack((segmentation, np.zeros_like(segmentation), 1 - segmentation), -1),
+        'unnorm_rotations': np.tile([1, 0, 0, 0], (segmentation.shape[0], 1)),
+        'logit_opacities': np.zeros((segmentation.shape[0], 1)),
+        'log_scales': np.tile(np.log(np.sqrt(mean_square_distance))[..., None], (1, 3)),
+        'cam_m': np.zeros((MAX_CAMS, 3)),
+        'cam_c': np.zeros((MAX_CAMS, 3)),
     }
     params = {k: torch.nn.Parameter(torch.tensor(v).cuda().float().contiguous().requires_grad_(True)) for k, v in
               params.items()}
-    cam_centers = np.linalg.inv(md['w2c'][0])[:, :3, 3]  # Get scene radius
-    scene_radius = 1.1 * np.max(np.linalg.norm(cam_centers - np.mean(cam_centers, 0)[None], axis=-1))
+    cam_centers = np.linalg.inv(metadata['w2c'][0])[:, :3, 3]  # Get scene radius
+    scene_radius = SCENE_SIZE_MULT * np.max(np.linalg.norm(cam_centers - np.mean(cam_centers, 0)[None], axis=-1))
     variables = {'max_2D_radius': torch.zeros(params['means3D'].shape[0]).cuda().float(),
                  'scene_radius': scene_radius,
                  'means2D_gradient_accum': torch.zeros(params['means3D'].shape[0]).cuda().float(),
@@ -61,7 +92,7 @@ def initialize_params(seq, md):
     return params, variables
 
 
-def initialize_optimizer(params, variables):
+def initialize_optimizer(params:dict, variables:dict):
     lrs = {
         'means3D': 0.00016 * variables['scene_radius'],
         'rgb_colors': 0.0025,
@@ -76,79 +107,40 @@ def initialize_optimizer(params, variables):
     return torch.optim.Adam(param_groups, lr=0.0, eps=1e-15)
 
 
-def get_loss(params, curr_data, variables, is_initial_timestep):
-    losses = {}
 
-    rendervar = params2rendervar(params)
-    rendervar['means2D'].retain_grad()
-    im, radius, _, = Renderer(raster_settings=curr_data['cam'])(**rendervar)
-    curr_id = curr_data['id']
-    im = torch.exp(params['cam_m'][curr_id])[:, None, None] * im + params['cam_c'][curr_id][:, None, None]
-    losses['im'] = 0.8 * l1_loss_v1(im, curr_data['im']) + 0.2 * (1.0 - calc_ssim(im, curr_data['im']))
-    variables['means2D'] = rendervar['means2D']  # Gradient only accum from colour render for densification
+def initialize_per_timestep(
+    params: dict[str, torch.Tensor], 
+    variables: dict[str, torch.Tensor], 
+    optimizer: torch.optim.Optimizer
+) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
 
-    segrendervar = params2rendervar(params)
-    segrendervar['colors_precomp'] = params['seg_colors']
-    seg, _, _, = Renderer(raster_settings=curr_data['cam'])(**segrendervar)
-    losses['seg'] = 0.8 * l1_loss_v1(seg, curr_data['seg']) + 0.2 * (1.0 - calc_ssim(seg, curr_data['seg']))
+    current_points = params['means3D']
+    current_rotations_normalized = torch.nn.functional.normalize(params['unnorm_rotations'])
 
-    if not is_initial_timestep:
-        is_fg = (params['seg_colors'][:, 0] > 0.5).detach()
-        fg_pts = rendervar['means3D'][is_fg]
-        fg_rot = rendervar['rotations'][is_fg]
+    # Calculate momentum-like updates
+    new_points = current_points + (current_points - variables["prev_pts"])
+    new_rotations = torch.nn.functional.normalize(current_rotations_normalized + (current_rotations_normalized - variables["prev_rot"]))
 
-        rel_rot = quat_mult(fg_rot, variables["prev_inv_rot_fg"])
-        rot = build_rotation(rel_rot)
-        neighbor_pts = fg_pts[variables["neighbor_indices"]]
-        curr_offset = neighbor_pts - fg_pts[:, None]
-        curr_offset_in_prev_coord = (rot.transpose(2, 1)[:, None] @ curr_offset[:, :, :, None]).squeeze(-1)
-        losses['rigid'] = weighted_l2_loss_v2(curr_offset_in_prev_coord, variables["prev_offset"],
-                                              variables["neighbor_weight"])
+    # Extract foreground entities' info
+    foreground_mask = params['seg_colors'][:, 0] > 0.5
+    previous_inverse_rotations_foreground = current_rotations_normalized[foreground_mask]
+    previous_inverse_rotations_foreground[:, 1:] = -1 * previous_inverse_rotations_foreground[:, 1:]
+    foreground_points = current_points[foreground_mask]
+    previous_offsets = foreground_points[variables["neighbor_indices"]] - foreground_points[:, None]
 
-        losses['rot'] = weighted_l2_loss_v2(rel_rot[variables["neighbor_indices"]], rel_rot[:, None],
-                                            variables["neighbor_weight"])
-
-        curr_offset_mag = torch.sqrt((curr_offset ** 2).sum(-1) + 1e-20)
-        losses['iso'] = weighted_l2_loss_v1(curr_offset_mag, variables["neighbor_dist"], variables["neighbor_weight"])
-
-        losses['floor'] = torch.clamp(fg_pts[:, 1], min=0).mean()
-
-        bg_pts = rendervar['means3D'][~is_fg]
-        bg_rot = rendervar['rotations'][~is_fg]
-        losses['bg'] = l1_loss_v2(bg_pts, variables["init_bg_pts"]) + l1_loss_v2(bg_rot, variables["init_bg_rot"])
-
-        losses['soft_col_cons'] = l1_loss_v2(params['rgb_colors'], variables["prev_col"])
-
-    loss_weights = {'im': 1.0, 'seg': 3.0, 'rigid': 4.0, 'rot': 4.0, 'iso': 2.0, 'floor': 2.0, 'bg': 20.0,
-                    'soft_col_cons': 0.01}
-    loss = sum([loss_weights[k] * v for k, v in losses.items()])
-    seen = radius > 0
-    variables['max_2D_radius'][seen] = torch.max(radius[seen], variables['max_2D_radius'][seen])
-    variables['seen'] = seen
-    return loss, variables
-
-
-def initialize_per_timestep(params, variables, optimizer):
-    pts = params['means3D']
-    rot = torch.nn.functional.normalize(params['unnorm_rotations'])
-    new_pts = pts + (pts - variables["prev_pts"])
-    new_rot = torch.nn.functional.normalize(rot + (rot - variables["prev_rot"]))
-
-    is_fg = params['seg_colors'][:, 0] > 0.5
-    prev_inv_rot_fg = rot[is_fg]
-    prev_inv_rot_fg[:, 1:] = -1 * prev_inv_rot_fg[:, 1:]
-    fg_pts = pts[is_fg]
-    prev_offset = fg_pts[variables["neighbor_indices"]] - fg_pts[:, None]
-    variables['prev_inv_rot_fg'] = prev_inv_rot_fg.detach()
-    variables['prev_offset'] = prev_offset.detach()
+    # Update previous values in the variables dictionary
+    variables['prev_inv_rot_fg'] = previous_inverse_rotations_foreground.detach()
+    variables['prev_offset'] = previous_offsets.detach()
     variables["prev_col"] = params['rgb_colors'].detach()
-    variables["prev_pts"] = pts.detach()
-    variables["prev_rot"] = rot.detach()
+    variables["prev_pts"] = current_points.detach()
+    variables["prev_rot"] = current_rotations_normalized.detach()
 
-    new_params = {'means3D': new_pts, 'unnorm_rotations': new_rot}
-    params = update_params_and_optimizer(new_params, params, optimizer)
+    # Update the params dictionary
+    updated_params = {'means3D': new_points, 'unnorm_rotations': new_rotations}
+    params = update_params_and_optimizer(updated_params, params, optimizer)
 
     return params, variables
+
 
 
 def initialize_post_first_timestep(params, variables, optimizer, num_knn=20):
@@ -184,42 +176,55 @@ def report_progress(params, data, i, progress_bar, every_i=100):
         progress_bar.update(every_i)
 
 
-def train(seq, exp):
-    if os.path.exists(f"./output/{exp}/{seq}"):
-        print(f"Experiment '{exp}' for sequence '{seq}' already exists. Exiting.")
+def train(sequence:str, exp_name:str):
+    if os.path.exists(f"./output/{exp_name}/{sequence}"):
+        print(f"Experiment '{exp_name}' for sequence '{sequence}' already exists. Exiting.")
         return
-    md = json.load(open(f"./data/{seq}/train_meta.json", 'r'))  # metadata
-    num_timesteps = len(md['fn'])
-    params, variables = initialize_params(seq, md)
+   
+    metadata = json.load(open(f"./data/{sequence}/train_meta.json", 'r'))
+    num_timesteps = len(metadata['fn'])
+
+    params, variables = initialize_params(sequence, metadata)
     optimizer = initialize_optimizer(params, variables)
     output_params = []
-    for t in range(num_timesteps):
-        dataset = get_dataset(t, md, seq)
-        todo_dataset = []
-        is_initial_timestep = (t == 0)
+    
+    for timestep in range(num_timesteps):
+        dataset = construct_timestep_dataset(timestep, metadata, sequence)
+        batch_sampler = initialize_batch_sampler(dataset)
+        is_initial_timestep = (timestep == 0)
         if not is_initial_timestep:
+            # "momentum-based update"
             params, variables = initialize_per_timestep(params, variables, optimizer)
-        num_iter_per_timestep = 10000 if is_initial_timestep else 2000
-        progress_bar = tqdm(range(num_iter_per_timestep), desc=f"timestep {t}")
+        
+        num_iter_per_timestep = INITIAL_TIMESTEP_ITERATIONS if is_initial_timestep else TIMESTEP_ITERATIONS
+        progress_bar = tqdm(range(num_iter_per_timestep), desc=f"timestep {timestep}")
+        
         for i in range(num_iter_per_timestep):
-            curr_data = get_batch(todo_dataset, dataset)
+            curr_data = get_data_point(batch_sampler, dataset)
             loss, variables = get_loss(params, curr_data, variables, is_initial_timestep)
             loss.backward()
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
+            
             with torch.no_grad():
                 report_progress(params, dataset[0], i, progress_bar)
                 if is_initial_timestep:
                     params, variables = densify(params, variables, optimizer, i)
-                optimizer.step()
-                optimizer.zero_grad(set_to_none=True)
+        
         progress_bar.close()
         output_params.append(params2cpu(params, is_initial_timestep))
         if is_initial_timestep:
             variables = initialize_post_first_timestep(params, variables, optimizer)
-    save_params(output_params, seq, exp)
+            
+    save_params(output_params, sequence, exp_name)
 
 
-if __name__ == "__main__":
+def main():
     exp_name = "exp1"
     for sequence in ["basketball", "boxes", "football", "juggle", "softball", "tennis"]:
         train(sequence, exp_name)
         torch.cuda.empty_cache()
+    
+    
+if __name__ == "__main__":
+    main()
