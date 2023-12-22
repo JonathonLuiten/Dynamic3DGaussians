@@ -54,14 +54,14 @@ There is also a custom visualization codebase build using Open3D (used for the c
 Please let me know if there is anyway you think the code could be cleaner. 
 
 
-## Previous bugs
-Before a recent [commit](https://github.com/JonathonLuiten/Dynamic3DGaussians/commit/a246ec6065a86b8c3f1c83f38c66df8954ffc4bf) there was a bug in this code. This has now been fixed and the code now seems like it is working bug free. On Oct 17 I also updated the pretrained model link to the most recent working code version. Please make sure to pull code to latest version AND redownload the pretrained models.
+## Camera Coordinate System
+This code uses uses the OpenCV camera co-ordinate system (same as COLMAP). This is different to the blender / standard NeRF camera coordinate system. The conversion code between the two can be found [here](https://github.com/NVlabs/instant-ngp/blob/9f6ab886306ce1f9b359d3856e8a1907ce8b8c8b/scripts/colmap2nerf.py#L350)
 
 
 ## Differences to paper
 This codebase contains some significant changes from the results presented in the currently public version of the paper.
 Both this codebase and the corresponding [paper](https://arxiv.org/pdf/2308.09713.pdf) are work-in-progress and likely to change in the near future.
-Until I find time to update the paper (ETA Dec 15th) the code here is the more up-to-date public facing version of these two.
+Until I find time to update the paper (ETA Feb 4th) the code here is the more up-to-date public facing version of these two.
 
 Differences:
  - In the paper we 'hard fixed' the colour to be perfectly consistent over time for each Gaussian by simply not updating it after the first timestep.
@@ -73,11 +73,12 @@ Please let me know if there are any other differences between the paper and the 
 
 ## Partial code release
 So far we have released two parts of the code: training and visualization.
-There are three further parts to be released in the future when I find time to clean them up (ETA Dec 15):
+There are three further parts to be released in the future when I find time to clean them up (ETA Feb 4th):
  - Evaluation code for evaluating the method for both novel-view-synthesis and tracking.
  - Data preparation code, to create the cleaned dataset (which I have provided), from the raw CMU panoptic capture data.
  - Code for creative editing of scenes (scene composition, etc).
 
+Previously I hoped to have this done in December, unfortunately I didn't manage this and I am now aiming for Feb 4.
 
 ## Calls for contributions: Let's make this code better together!
 Happy to work together to make this code better. If you want to contrib either open and issue / pull request, or send me an email.
